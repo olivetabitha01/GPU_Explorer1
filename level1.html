@@ -439,7 +439,7 @@ function startTimer(startTs) {
       clearInterval(timerInterval);
       timerEl.textContent = '00:00';
       timerEl.classList.add('warning');
-      showToast('⏰ Time's up! Auto-submitting...', 'warning');
+      showToast("⏰ Time's up! Auto-submitting...", "warning");
       setTimeout(() => goToNextLevel(), 1500);
       return;
     }
