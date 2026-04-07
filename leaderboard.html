@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU Explorer — Live Leaderboard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .lb-page { min-height: 100vh; padding: 48px 24px 80px; }
+
+    /* ---- HEADER ---- */
+    .lb-header { text-align: center; margin-bottom: 40px; animation: fadeInUp 0.6s ease both; }
+
+    .live-indicator {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px; border-radius: 999px;
+      background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.3);
+      font-family: var(--font-mono); font-size: 0.75rem; color: var(--green);
+      letter-spacing: 0.1em; margin-bottom: 20px;
+    }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 1s infinite; box-shadow: 0 0 6px var(--green); }
+
+    /* ---- STATUS BAR ---- */
+    .status-bar {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      padding: 12px 20px; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 24px; font-family: var(--font-mono); font-size: 0.8rem;
+    }
+    .status-left { display: flex; align-items: center; gap: 10px; }
+    .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .conn-dot.connected    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .conn-dot.disconnected { background: var(--red);   animation: pulse 0.5s infinite; }
+    .conn-dot.loading      { background: var(--gold);  animation: pulse 0.8s infinite; }
+    #conn-label { color: var(--muted); }
+
+    .refresh-btn {
+      background: transparent; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--muted); font-family: var(--font-mono); font-size: 0.75rem;
+      padding: 6px 14px; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 6px;
+    }
+    .refresh-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .spin { animation: rotate-slow 0.8s linear infinite; display: inline-block; }
+
+    /* ---- PODIUM ---- */
+    .podium-wrap { margin-bottom: 40px; animation: fadeInUp 0.6s ease 0.1s both; }
+    .podium {
+      display: flex; align-items: flex-end; justify-content: center; gap: 12px; flex-wrap: wrap;
+    }
+
+    .podium-item { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .podium-place-label { font-family: var(--font-title); font-size: 0.65rem; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; }
+
+    .podium-card {
+      background: var(--bg-card); border: 2px solid; border-radius: var(--radius-lg);
+      padding: 20px 20px 16px; text-align: center; min-width: 148px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      transition: var(--transition);
+    }
+    .podium-card:hover { transform: translateY(-4px); }
+
+    .podium-1 .podium-card { border-color: var(--gold); box-shadow: 0 0 30px rgba(255,215,0,0.2); min-height: 180px; justify-content: center; }
+    .podium-2 .podium-card { border-color: #a0a0a0; box-shadow: 0 0 20px rgba(160,160,160,0.15); min-height: 148px; justify-content: center; }
+    .podium-3 .podium-card { border-color: #cd7f32; box-shadow: 0 0 20px rgba(205,127,50,0.15); min-height: 120px; justify-content: center; }
+
+    .podium-medal { font-size: 2.2rem; animation: float 2.5s ease-in-out infinite; }
+    .podium-name  { font-family: var(--font-title); font-size: 0.8rem; letter-spacing: 0.06em; }
+    .podium-score { font-family: var(--font-mono); font-size: 1.4rem; font-weight: 700; }
+    .podium-time  { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
+
+    .podium-empty .podium-card { border-color: var(--border); opacity: 0.4; }
+
+    /* ---- TABLE ---- */
+    .lb-table-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 28px;
+      animation: fadeInUp 0.6s ease 0.2s both;
+    }
+
+    .lb-thead {
+      display: grid; grid-template-columns: 56px 1fr 70px 90px 80px;
+      gap: 8px; padding: 12px 24px;
+      background: rgba(0,247,255,0.04); border-bottom: 1px solid var(--border);
+      font-family: var(--font-title); font-size: 0.65rem; letter-spacing: 0.1em;
+      color: var(--muted); text-transform: uppercase;
+    }
+
+    .lb-row {
+      display: grid; grid-template-columns: 56px 1fr 70px 90px 80px;
+      gap: 8px; align-items: center; padding: 16px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.2s ease;
+    }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-row:hover { background: rgba(0,247,255,0.03); }
+    .lb-row.rank-1 { background: rgba(255,215,0,0.04); }
+    .lb-row.rank-2 { background: rgba(160,160,160,0.03); }
+    .lb-row.rank-3 { background: rgba(205,127,50,0.03); }
+
+    .lb-rank { font-family: var(--font-title); font-size: 1rem; font-weight: 900; text-align: center; }
+    .lb-team { font-family: var(--font-body); font-size: 1rem; font-weight: 600; }
+    .lb-team-sub { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
+    .lb-plays { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); text-align: center; }
+    .lb-time  { font-family: var(--font-mono); font-size: 0.85rem; text-align: center; }
+    .lb-score { font-family: var(--font-title); font-size: 1.1rem; font-weight: 900; text-align: center; color: var(--cyan); }
+
+    .lb-loading { padding: 60px; text-align: center; font-family: var(--font-mono); color: var(--muted); font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 14px; }
+    .lb-spin { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--cyan); border-radius: 50%; animation: rotate-slow 0.8s linear infinite; }
+    .lb-empty { padding: 60px; text-align: center; font-family: var(--font-mono); color: var(--muted); font-size: 0.9rem; }
+
+    @media (max-width: 600px) {
+      .lb-thead { grid-template-columns: 44px 1fr 80px; }
+      .lb-row   { grid-template-columns: 44px 1fr 80px; }
+      .lb-thead > *:nth-child(3),
+      .lb-row   > *:nth-child(3),
+      .lb-thead > *:nth-child(4),
+      .lb-row   > *:nth-child(4) { display: none; }
+    }
+
+    /* ---- ERROR BOX ---- */
+    .error-box {
+      background: rgba(255,64,96,0.06); border: 1px solid rgba(255,64,96,0.25);
+      border-radius: var(--radius); padding: 20px 24px; margin-bottom: 20px;
+      font-family: var(--font-body); font-size: 0.9rem; color: rgba(255,64,96,0.9);
+      display: none;
+    }
+    .error-box.show { display: block; animation: fadeInUp 0.3s ease; }
+
+    /* ---- JUDGE NOTE ---- */
+    .judge-note {
+      background: rgba(255,215,0,0.05); border: 1px solid rgba(255,215,0,0.2);
+      border-radius: var(--radius); padding: 20px 24px;
+      font-family: var(--font-body); font-size: 0.9rem; color: rgba(255,255,255,0.8); line-height: 1.6;
+      animation: fadeInUp 0.6s ease 0.3s both;
+    }
+    .judge-note strong { color: var(--gold); }
+
+    /* ---- SCORE LEGEND ---- */
+    .score-legend {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;
+      margin-bottom: 24px; animation: fadeInUp 0.6s ease 0.25s both;
+    }
+    .legend-item {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px 18px; font-family: var(--font-body); font-size: 0.85rem;
+    }
+    .legend-pts { font-family: var(--font-mono); color: var(--cyan); font-weight: 700; }
+  </style>
+</head>
+<body>
+<div class="page lb-page">
+  <div class="container">
+
+    <!-- HEADER -->
+    <div class="lb-header">
+      <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-family:var(--font-mono);font-size:0.8rem;text-decoration:none;margin-bottom:20px;">← Home</a>
+      <br>
+      <div class="live-indicator"><div class="live-dot"></div>LIVE LEADERBOARD</div>
+      <h1 class="title-xl">Team<br>Rankings</h1>
+      <p class="subtitle mt-4">Updates in real time as teams complete the mission</p>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <div class="status-left">
+        <div class="conn-dot loading" id="conn-dot"></div>
+        <span id="conn-label">Connecting to Firebase...</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <span id="last-update" style="font-size:0.7rem;color:var(--muted);"></span>
+        <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <!-- ERROR BOX -->
+    <div class="error-box" id="error-box"></div>
+
+    <!-- PODIUM -->
+    <div class="podium-wrap">
+      <div class="podium" id="podium">
+        <div class="lb-loading"><div class="lb-spin"></div> Loading rankings...</div>
+      </div>
+    </div>
+
+    <!-- SCORE LEGEND -->
+    <div class="score-legend">
+      <div class="legend-item">Level 1 (10 questions) <span class="legend-pts">max 10 pts</span></div>
+      <div class="legend-item">Level 2 — GPU install  <span class="legend-pts">+0.5 pts</span></div>
+      <div class="legend-item">Level 2 — MCQ (5×0.5)  <span class="legend-pts">+2.5 pts</span></div>
+      <div class="legend-item">Case Study (5×0.5)      <span class="legend-pts">+2.5 pts</span></div>
+      <div class="legend-item">Speed bonus (&lt;5 min) <span class="legend-pts">+1 pt</span></div>
+      <div class="legend-item">Judge teamwork bonus    <span class="legend-pts">+0–4 pts</span></div>
+    </div>
+
+    <!-- FULL TABLE -->
+    <div class="lb-table-card">
+      <div class="lb-thead">
+        <span>Rank</span>
+        <span>Team</span>
+        <span style="text-align:center">Plays</span>
+        <span style="text-align:center">Best Time</span>
+        <span style="text-align:center">Best Score</span>
+      </div>
+      <div id="lb-body">
+        <div class="lb-loading"><div class="lb-spin"></div> Loading...</div>
+      </div>
+    </div>
+
+    <!-- JUDGE NOTE -->
+    <div class="judge-note">
+      <strong>📋 Judge's Note:</strong>
+      The leaderboard above shows automated scores only (max 16.5 pts including speed bonus).
+      Judges should add <strong>0–4 teamwork bonus points</strong> based on observed participation,
+      discussion quality, role coordination, and composure under pressure.
+      <br><br>
+      <strong>Tiebreaker:</strong> Equal scores → lowest completion time wins.
+    </div>
+
+  </div>
+</div>
+
+<script src="js/game.js"></script>
+<script type="module">
+import { listenLeaderboard, getLeaderboard } from './js/firebase.js';
+
+// ---- Helpers ----
+const rankMedals = ['🥇', '🥈', '🥉'];
+const rankColors = ['var(--gold)', '#c0c0c0', '#cd7f32'];
+
+function fmtSecs(s) {
+  if (!s && s !== 0) return '—';
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}m ${sec.toString().padStart(2, '0')}s`;
+}
+
+function setConn(state, msg) {
+  const dot   = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  dot.className = `conn-dot ${state}`;
+  label.textContent = msg;
+}
+
+function stamp() {
+  document.getElementById('last-update').textContent =
+    'Updated: ' + new Date().toLocaleTimeString();
+}
+
+// ---- Render podium ----
+function renderPodium(data) {
+  const podium = document.getElementById('podium');
+  podium.innerHTML = '';
+  if (!data.length) return;
+
+  // Display order: 2nd | 1st | 3rd
+  const order = [data[1], data[0], data[2]];
+  const labels = ['2ND', '1ST', '3RD'];
+  const heights = [148, 180, 120];
+
+  order.forEach((team, displayIdx) => {
+    const realRank = displayIdx === 1 ? 1 : displayIdx === 0 ? 2 : 3;
+    const item = document.createElement('div');
+
+    if (!team) {
+      item.className = `podium-item podium-empty`;
+      item.innerHTML = `
+        <div class="podium-card" style="min-height:${heights[displayIdx]}px;border-color:var(--border);">
+          <div class="podium-medal" style="opacity:0.3">${rankMedals[realRank - 1]}</div>
+          <div class="podium-name" style="color:var(--muted)">—</div>
+        </div>
+        <div class="podium-place-label">${labels[displayIdx]}</div>
+      `;
+    } else {
+      item.className = `podium-item podium-${realRank}`;
+      item.innerHTML = `
+        <div class="podium-card" style="min-height:${heights[displayIdx]}px;">
+          <div class="podium-medal">${rankMedals[realRank - 1]}</div>
+          <div class="podium-name">${team.teamName || team.teamId}</div>
+          <div class="podium-score" style="color:${rankColors[realRank - 1]}">${team.bestScore} pts</div>
+          <div class="podium-time">${fmtSecs(team.bestTime)}</div>
+        </div>
+        <div class="podium-place-label">${labels[displayIdx]}</div>
+      `;
+    }
+    podium.appendChild(item);
+  });
+}
+
+// ---- Render table ----
+function renderTable(data) {
+  const body = document.getElementById('lb-body');
+
+  if (!data.length) {
+    body.innerHTML = `<div class="lb-empty">🚀 No completions yet — be the first team to finish!</div>`;
+    return;
+  }
+
+  body.innerHTML = data.map((team, i) => {
+    const rank = i + 1;
+    const medal = rank <= 3 ? rankMedals[rank - 1] : `#${rank}`;
+    const color = rank <= 3 ? rankColors[rank - 1] : 'var(--muted)';
+    const cls   = rank <= 3 ? `lb-row rank-${rank}` : 'lb-row';
+
+    return `
+      <div class="${cls}">
+        <div class="lb-rank" style="color:${color}">${medal}</div>
+        <div>
+          <div class="lb-team">${team.teamName || team.teamId}</div>
+          <div class="lb-team-sub">${team.totalPlays || 1} run${(team.totalPlays || 1) > 1 ? 's' : ''}</div>
+        </div>
+        <div class="lb-plays">${team.totalPlays || 1}</div>
+        <div class="lb-time">${fmtSecs(team.bestTime)}</div>
+        <div class="lb-score">${team.bestScore}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ---- Main: start real-time listener ----
+let unsubscribe = null;
+
+function startListening() {
+  setConn('loading', 'Connecting...');
+
+  unsubscribe = listenLeaderboard(data => {
+    setConn('connected', 'Live — auto-updating');
+    renderPodium(data);
+    renderTable(data);
+    stamp();
+    document.getElementById('error-box').classList.remove('show');
+    document.getElementById('refresh-btn').innerHTML = '🔄 Refresh';
+  });
+}
+
+// ---- Manual refresh (fallback) ----
+window.manualRefresh = async function () {
+  const btn = document.getElementById('refresh-btn');
+  btn.innerHTML = '<span class="spin">↻</span> Refreshing...';
+  btn.disabled = true;
+
+  try {
+    const data = await getLeaderboard();
+    renderPodium(data);
+    renderTable(data);
+    stamp();
+    setConn('connected', 'Fetched successfully');
+    document.getElementById('error-box').classList.remove('show');
+  } catch (e) {
+    const errBox = document.getElementById('error-box');
+    errBox.textContent = `⚠️ Could not reach Firebase: ${e.message}. Check your internet connection and Firebase config in js/firebase.js.`;
+    errBox.classList.add('show');
+    setConn('disconnected', 'Connection error');
+    console.error('manualRefresh error:', e);
+  } finally {
+    btn.innerHTML = '🔄 Refresh';
+    btn.disabled = false;
+  }
+};
+
+// ---- Auto-refresh every 15s as safety net ----
+setInterval(() => {
+  getLeaderboard().then(data => {
+    renderPodium(data);
+    renderTable(data);
+    stamp();
+  }).catch(() => {});
+}, 15000);
+
+// ---- Start ----
+startListening();
+</script>
+</body>
+</html>

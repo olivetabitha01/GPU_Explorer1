@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU Explorer — Mission Complete</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .final-page {
+      min-height: 100vh;
+      padding: 60px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .final-container {
+      width: 100%;
+      max-width: 680px;
+    }
+
+    /* Trophy animation */
+    .trophy-wrap {
+      position: relative;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .trophy-ring {
+      position: absolute;
+      width: 160px; height: 160px;
+      border: 2px solid rgba(0,247,255,0.15);
+      border-radius: 50%;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation: rotate-slow 8s linear infinite;
+    }
+    .trophy-ring-2 {
+      position: absolute;
+      width: 220px; height: 220px;
+      border: 1px solid rgba(168,85,247,0.1);
+      border-radius: 50%;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation: rotate-slow 12s linear infinite reverse;
+    }
+
+    .trophy-emoji {
+      font-size: 5rem;
+      display: block;
+      animation: float 2s ease-in-out infinite;
+      filter: drop-shadow(0 0 20px gold);
+      position: relative;
+      z-index: 1;
+      margin: 40px 0;
+    }
+
+    /* Score card */
+    .score-card {
+      background: linear-gradient(135deg, rgba(0,247,255,0.06), rgba(168,85,247,0.06));
+      border: 2px solid rgba(0,247,255,0.3);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      text-align: center;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .score-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--purple), var(--green));
+    }
+
+    .score-main {
+      font-family: var(--font-title);
+      font-size: clamp(3rem, 10vw, 5.5rem);
+      font-weight: 900;
+      line-height: 1;
+      margin: 8px 0;
+      background: linear-gradient(135deg, var(--cyan), var(--green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .score-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .score-breakdown {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .score-item {
+      text-align: center;
+      padding: 12px 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    .score-item-val {
+      font-family: var(--font-title);
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: var(--cyan);
+      display: block;
+    }
+
+    .score-item-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* Info card */
+    .info-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+
+    .info-key { color: var(--muted); }
+    .info-val {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--white);
+    }
+
+    /* Performance badge */
+    .perf-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      border-radius: 999px;
+      font-family: var(--font-title);
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      border: 2px solid;
+      margin-bottom: 24px;
+    }
+
+    /* Firebase status */
+    .firebase-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      margin-bottom: 24px;
+    }
+
+    .firebase-status.saving {
+      background: rgba(0,247,255,0.06);
+      border: 1px solid rgba(0,247,255,0.2);
+      color: var(--cyan);
+    }
+
+    .firebase-status.saved {
+      background: rgba(0,255,136,0.06);
+      border: 1px solid rgba(0,255,136,0.2);
+      color: var(--green);
+    }
+
+    .firebase-status.error {
+      background: rgba(255,64,96,0.06);
+      border: 1px solid rgba(255,64,96,0.2);
+      color: var(--red);
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid transparent;
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: rotate-slow 0.8s linear infinite;
+    }
+
+    /* Action buttons */
+    .action-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .action-row .btn { flex: 1; min-width: 140px; }
+
+    /* Confetti particles on load */
+    .confetti-piece {
+      position: fixed;
+      width: 8px; height: 8px;
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 9997;
+    }
+  </style>
+</head>
+<body>
+<div class="page final-page">
+  <div class="final-container" style="animation: fadeInUp 0.6s ease both;">
+
+    <!-- Trophy -->
+    <div class="trophy-wrap">
+      <div class="trophy-ring"></div>
+      <div class="trophy-ring-2"></div>
+      <span class="trophy-emoji" id="trophy-emoji">🏆</span>
+    </div>
+
+    <!-- Title -->
+    <div class="center mb-6">
+      <span class="badge badge-gold">MISSION COMPLETE</span>
+      <h1 class="title-xl mt-4" id="final-title">GPU<br>EXPLORER</h1>
+      <p class="subtitle mt-4" id="final-subtitle">You've completed the challenge!</p>
+    </div>
+
+    <!-- Performance Badge -->
+    <div class="center mb-6">
+      <span class="perf-badge" id="perf-badge">🌟 Explorer</span>
+    </div>
+
+    <!-- Score Card -->
+    <div class="score-card">
+      <div class="score-label">Total Score</div>
+      <div class="score-main" id="score-main">0</div>
+      <div class="score-label">OUT OF 7 POINTS</div>
+      <div class="score-breakdown">
+        <div class="score-item">
+          <span class="score-item-val" id="l1-score">0/5</span>
+          <span class="score-item-label">Level 1</span>
+        </div>
+        <div class="score-item">
+          <span class="score-item-val" id="l2-score">0/1</span>
+          <span class="score-item-label">Level 2</span>
+        </div>
+        <div class="score-item">
+          <span class="score-item-val" id="time-display">—</span>
+          <span class="score-item-label">Time Taken</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="info-card">
+      <div class="info-row">
+        <span class="info-key">Player</span>
+        <span class="info-val" id="info-member">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Team</span>
+        <span class="info-val" id="info-team">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Completion Time</span>
+        <span class="info-val" id="info-time">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Level 1 — CPU vs GPU</span>
+        <span class="info-val" id="info-l1">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">Level 2 — Hardware Puzzle</span>
+        <span class="info-val" id="info-l2">—</span>
+      </div>
+    </div>
+
+    <!-- Firebase Status -->
+    <div class="firebase-status saving" id="firebase-status">
+      <div class="spinner"></div>
+      <span>Saving your result to leaderboard...</span>
+    </div>
+
+    <!-- Actions -->
+    <div class="action-row">
+      <a class="btn btn-secondary" href="leaderboard.html">
+        📊 Leaderboard
+      </a>
+      <button class="btn btn-primary" onclick="playAgain()">
+        🔄 Play Again
+      </button>
+    </div>
+
+    <p class="text-muted center mt-6" style="font-family:var(--font-mono); font-size:0.75rem;">
+      Your score has been submitted for judging. Show this screen to your team supervisor.
+    </p>
+
+  </div>
+</div>
+
+<script src="js/game.js"></script>
+<script type="module">
+import { saveSession } from './js/firebase.js';
+
+window.addEventListener('DOMContentLoaded', () => {
+  // Load stored data
+  const teamId     = S.get('teamId')     || 'unknown';
+  const teamName   = S.get('teamName')   || 'Team';
+  const memberName = S.get('memberName') || 'Explorer';
+  const l1Score    = parseFloat(S.get('l1Score') || 0);
+  const l2Score    = parseFloat(S.get('l2Score') || 0);
+  const startTime  = S.get('startTime')  || Date.now();
+  const total      = parseFloat(S.get('score')   || 0);
+
+  const endTime  = Date.now();
+  const elapsed  = endTime - startTime;
+  const minutes  = Math.floor(elapsed / 60000);
+  const seconds  = Math.floor((elapsed % 60000) / 1000);
+  const timeStr  = `${minutes}m ${seconds.toString().padStart(2,'0')}s`;
+
+  // Populate UI
+  document.getElementById('info-member').textContent  = memberName;
+  document.getElementById('info-team').textContent    = teamName;
+  document.getElementById('info-time').textContent    = timeStr;
+  document.getElementById('info-l1').textContent      = `${Math.round(l1Score)} / 5 correct`;
+  document.getElementById('info-l2').textContent      = l2Score >= 1 ? '1 / 1 — Full marks!' : l2Score >= 0.5 ? '0.5 / 1 — GPU placed' : '0 / 1';
+  document.getElementById('l1-score').textContent     = `${Math.round(l1Score)}/5`;
+  document.getElementById('l2-score').textContent     = `${l2Score}/1`;
+  document.getElementById('time-display').textContent = timeStr;
+  document.getElementById('final-subtitle').textContent = `Well done, ${memberName}!`;
+
+  // Score animation
+  animateScore(total);
+
+  // Performance badge
+  const { emoji, label, color } = getPerformance(total, elapsed);
+  document.getElementById('trophy-emoji').textContent = emoji;
+  const pb = document.getElementById('perf-badge');
+  pb.textContent = `${emoji} ${label}`;
+  pb.style.borderColor = color;
+  pb.style.color = color;
+
+  // Confetti
+  launchConfetti(total >= 5);
+
+  // Save to Firebase
+  saveSession({
+    teamId, teamName, memberName,
+    score: total,
+    timeMs: elapsed,
+    l1Score: Math.round(l1Score),
+    l2Score: l2Score
+  }).then(id => {
+    const statusEl = document.getElementById('firebase-status');
+    if (id) {
+      statusEl.className = 'firebase-status saved';
+      statusEl.innerHTML = '✅ Score saved to leaderboard successfully!';
+    } else {
+      statusEl.className = 'firebase-status error';
+      statusEl.innerHTML = '⚠️ Could not save — check Firebase config.';
+    }
+  });
+});
+
+function animateScore(target) {
+  const el = document.getElementById('score-main');
+  const scoreMain = document.getElementById('score-main');
+  let current = 0;
+  const step = target / 30;
+  const interval = setInterval(() => {
+    current = Math.min(current + step, target);
+    el.textContent = current.toFixed(1).replace('.0', '');
+    if (current >= target) clearInterval(interval);
+  }, 40);
+}
+
+function getPerformance(score, elapsedMs) {
+  const min = elapsedMs / 60000;
+  if (score >= 6 && min < 5)  return { emoji: '🚀', label: 'Legendary — Speed & Accuracy!', color: '#ffd700' };
+  if (score >= 6)              return { emoji: '🥇', label: 'Expert GPU Engineer',            color: '#ffd700' };
+  if (score >= 4)              return { emoji: '⚡', label: 'GPU Pro',                         color: '#00f7ff' };
+  if (score >= 2)              return { emoji: '🌟', label: 'Core Explorer',                   color: '#a855f7' };
+  return                              { emoji: '🔧', label: 'Keep Learning!',                  color: '#4a6a8a' };
+}
+
+function launchConfetti(big) {
+  const colors = ['#00f7ff', '#00ff88', '#ffd700', '#a855f7', '#ff4060'];
+  const count  = big ? 60 : 30;
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.cssText = `
+        left: ${Math.random() * 100}vw;
+        top: -10px;
+        background: ${colors[Math.floor(Math.random() * colors.length)]};
+        transform: rotate(${Math.random() * 360}deg);
+        animation: particle-float ${Math.random() * 3 + 2}s ease forwards;
+        --drift: ${(Math.random() - 0.5) * 200}px;
+        opacity: 0.8;
+        border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+        width: ${Math.random() * 8 + 4}px;
+        height: ${Math.random() * 8 + 4}px;
+      `;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 5000);
+    }, i * 60);
+  }
+}
+</script>
+<script>
+function playAgain() {
+  S.clear();
+  document.body.style.opacity = '0';
+  document.body.style.transition = 'opacity 0.5s ease';
+  setTimeout(() => window.location.href = 'login.html', 500);
+}
+</script>
+</body>
+</html>

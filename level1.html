@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU Explorer — Level 1</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .level-page {
+      min-height: 100vh;
+      padding: 20px 24px 60px;
+    }
+
+    /* HUD Top */
+    .hud-top { margin-bottom: 32px; animation: fadeInUp 0.4s ease both; }
+
+    /* Level badge */
+    .level-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(0,247,255,0.15), rgba(0,80,255,0.15));
+      border: 1px solid var(--cyan);
+      font-family: var(--font-title);
+      font-size: 0.75rem;
+      color: var(--cyan);
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+    }
+
+    /* Question card */
+    .question-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px 32px;
+      text-align: center;
+      margin: 0 auto 28px;
+      max-width: 700px;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+
+    .question-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), var(--purple));
+      transform-origin: left;
+      transition: transform 0.5s ease;
+    }
+
+    .q-icon {
+      font-size: 3.5rem;
+      display: block;
+      margin-bottom: 20px;
+      animation: float 2s ease-in-out infinite;
+    }
+
+    .q-num {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      margin-bottom: 16px;
+    }
+
+    .q-text {
+      font-family: var(--font-title);
+      font-size: clamp(1.1rem, 3vw, 1.5rem);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 12px;
+      color: var(--white);
+    }
+
+    .q-hint {
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      color: var(--muted);
+      max-width: 480px;
+      margin: 0 auto;
+      display: none;
+    }
+
+    .q-hint.show { display: block; animation: fadeIn 0.3s ease; }
+
+    /* Answer buttons */
+    .answer-section {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .cpu-gpu-btn {
+      flex: 1;
+      min-width: 180px;
+      max-width: 280px;
+      padding: 24px 20px;
+      border-radius: var(--radius-lg);
+      border: 2px solid;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cpu-btn {
+      background: linear-gradient(135deg, #0d1f3c, #05101f);
+      border-color: rgba(100,150,255,0.4);
+      color: var(--white);
+    }
+    .cpu-btn:hover {
+      border-color: #6a9ef4;
+      box-shadow: 0 0 40px rgba(100,150,255,0.4), 0 10px 30px rgba(0,0,0,0.5);
+      transform: translateY(-4px);
+    }
+    .cpu-btn.selected {
+      border-color: #6a9ef4;
+      background: linear-gradient(135deg, rgba(100,150,255,0.2), #0d1f3c);
+      box-shadow: 0 0 30px rgba(100,150,255,0.3);
+    }
+
+    .gpu-btn {
+      background: linear-gradient(135deg, #0d2a1a, #051509);
+      border-color: rgba(0,200,100,0.4);
+      color: var(--white);
+    }
+    .gpu-btn:hover {
+      border-color: #00ff88;
+      box-shadow: 0 0 40px rgba(0,255,136,0.4), 0 10px 30px rgba(0,0,0,0.5);
+      transform: translateY(-4px);
+    }
+    .gpu-btn.selected {
+      border-color: #00ff88;
+      background: linear-gradient(135deg, rgba(0,255,136,0.2), #0d2a1a);
+      box-shadow: 0 0 30px rgba(0,255,136,0.3);
+    }
+
+    .choice-icon { font-size: 2.5rem; display: block; margin-bottom: 12px; }
+    .choice-label {
+      font-family: var(--font-title);
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .choice-desc {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      opacity: 0.6;
+      letter-spacing: 0.06em;
+    }
+
+    /* Cores visual (GPU button) */
+    .cores-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 3px;
+      margin: 10px auto;
+      max-width: 80px;
+      opacity: 0.4;
+    }
+    .core { width: 8px; height: 8px; border-radius: 2px; background: var(--green); }
+
+    /* CPU visual */
+    .cpu-visual {
+      width: 44px; height: 44px;
+      border: 2px solid rgba(100,150,255,0.5);
+      border-radius: 6px;
+      margin: 10px auto;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      opacity: 0.6;
+    }
+
+    /* Confirm area */
+    .confirm-area {
+      max-width: 700px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .discuss-prompt {
+      background: rgba(0,247,255,0.05);
+      border: 1px dashed rgba(0,247,255,0.2);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 20px;
+      letter-spacing: 0.06em;
+    }
+
+    /* Feedback overlay */
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .feedback-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .feedback-card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      text-align: center;
+      max-width: 440px;
+      width: 90%;
+      border: 2px solid;
+      box-shadow: 0 0 80px rgba(0,0,0,0.8), 0 0 40px;
+      animation: fadeInUp 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .feedback-card.correct {
+      border-color: var(--green);
+      box-shadow: 0 0 80px rgba(0,0,0,0.8), 0 0 40px rgba(0,255,136,0.3);
+    }
+
+    .feedback-card.wrong {
+      border-color: var(--red);
+      box-shadow: 0 0 80px rgba(0,0,0,0.8), 0 0 40px rgba(255,64,96,0.3);
+    }
+
+    .feedback-big { font-size: 4rem; display: block; margin-bottom: 12px; }
+    .feedback-title {
+      font-family: var(--font-title);
+      font-size: 1.6rem;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .feedback-explain {
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.5;
+    }
+
+    /* Progress dots */
+    .progress-dots {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: transparent;
+      transition: var(--transition);
+    }
+    .dot.answered { background: var(--muted); border-color: var(--muted); }
+    .dot.correct  { background: var(--green); border-color: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.wrong    { background: var(--red);   border-color: var(--red);   box-shadow: 0 0 8px var(--red); }
+    .dot.current  { border-color: var(--cyan); animation: glow-pulse 1s infinite; }
+
+    /* Hint button */
+    .hint-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: var(--transition);
+      margin-top: 12px;
+    }
+    .hint-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* Background animation when correct/wrong */
+    body.flash-correct::after { background: rgba(0,255,136,0.03); }
+    body.flash-wrong::after   { background: rgba(255,64,96,0.03); }
+  </style>
+</head>
+<body>
+<div class="page level-page">
+  <div class="container">
+
+    <!-- HUD -->
+    <div class="hud-top">
+      <div class="hud">
+        <div class="hud-item">
+          <span class="hud-label">Team</span>
+          <span class="hud-value" id="hud-team">—</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">Player</span>
+          <span class="hud-value" id="hud-member">—</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">Level</span>
+          <span class="hud-value text-cyan">01 / 02</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">Score</span>
+          <span class="hud-value" id="hud-score">0 / 10</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">Time Left</span>
+          <span class="hud-value hud-timer" id="hud-timer">10:00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-wrap mb-6" style="max-width:700px; margin-left:auto; margin-right:auto;">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+
+    <!-- Level Badge + Title -->
+    <div class="center mb-6" style="animation: fadeInUp 0.4s ease 0.1s both;">
+      <span class="level-badge">⚡ LEVEL 1 — CPU vs GPU CHALLENGE</span>
+      <div class="progress-dots" id="progress-dots"></div>
+    </div>
+
+    <!-- Question Card -->
+    <div class="question-card" id="question-card">
+      <span class="q-icon" id="q-icon">🖥️</span>
+      <div class="q-num" id="q-num">QUESTION 1 OF 5</div>
+      <div class="q-text" id="q-text">Loading question...</div>
+      <p class="q-hint" id="q-hint"></p>
+      <button class="hint-btn" onclick="showHint()" id="hint-btn">💡 Show Hint</button>
+    </div>
+
+    <!-- Answer Buttons -->
+    <div class="answer-section">
+      <button class="cpu-gpu-btn cpu-btn" id="cpu-btn" onclick="selectAnswer('cpu')">
+        <span class="choice-icon">🧠</span>
+        <div class="cpu-visual">▪</div>
+        <div class="choice-label">CPU</div>
+        <div class="choice-desc">CENTRAL PROCESSING UNIT</div>
+        <div class="choice-desc" style="margin-top:4px; opacity:0.5">General Purpose · Sequential</div>
+      </button>
+
+      <button class="cpu-gpu-btn gpu-btn" id="gpu-btn" onclick="selectAnswer('gpu')">
+        <span class="choice-icon">⚡</span>
+        <div class="cores-grid" id="cores-grid"></div>
+        <div class="choice-label">GPU</div>
+        <div class="choice-desc">GRAPHICS PROCESSING UNIT</div>
+        <div class="choice-desc" style="margin-top:4px; opacity:0.5">Parallel · High Throughput</div>
+      </button>
+    </div>
+
+    <!-- Confirm Area -->
+    <div class="confirm-area" style="animation: fadeInUp 0.4s ease 0.3s both;">
+      <div class="discuss-prompt" id="discuss-prompt">
+        👑 Team: discuss and agree — then the <strong>Leader</strong> confirms the answer
+      </div>
+      <button class="btn btn-confirm" id="confirm-btn" onclick="confirmAnswer()" disabled>
+        ✅ Confirm Answer
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Feedback Overlay -->
+<div class="feedback-overlay" id="feedback-overlay">
+  <div class="feedback-card" id="feedback-card">
+    <span class="feedback-big" id="feedback-icon">✅</span>
+    <div class="feedback-title" id="feedback-title">Correct!</div>
+    <p class="feedback-explain" id="feedback-explain"></p>
+  </div>
+</div>
+
+<script src="js/game.js"></script>
+<script>
+// ---- STATE ----
+let currentQ   = 0;
+let selected   = null;
+let score      = 0;
+let answers    = [];
+let timerInterval;
+const LIMIT_MS = 10 * 60 * 1000;
+
+// ---- INIT ----
+window.addEventListener('DOMContentLoaded', () => {
+  // Load session data
+  const teamName   = S.get('teamName')   || 'Team';
+  const memberName = S.get('memberName') || 'Explorer';
+  const startTime  = S.get('startTime')  || Date.now();
+
+  document.getElementById('hud-team').textContent   = teamName.split('—')[0]?.trim() || teamName;
+  document.getElementById('hud-member').textContent = memberName;
+
+  // Render GPU cores visual
+  const coresGrid = document.getElementById('cores-grid');
+  for (let i = 0; i < 24; i++) {
+    const c = document.createElement('div'); c.className = 'core';
+    coresGrid.appendChild(c);
+  }
+
+  // Render progress dots
+  const dotsContainer = document.getElementById('progress-dots');
+  QUESTIONS.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' current' : '');
+    d.id = `dot-${i}`;
+    dotsContainer.appendChild(d);
+  });
+
+  loadQuestion();
+  startTimer(startTime);
+});
+
+// ---- TIMER ----
+function startTimer(startTs) {
+  const timerEl = document.getElementById('hud-timer');
+
+  function tick() {
+    const elapsed   = Date.now() - startTs;
+    const remaining = LIMIT_MS - elapsed;
+
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      timerEl.textContent = '00:00';
+      timerEl.classList.add('warning');
+      showToast('⏰ Time's up! Auto-submitting...', 'warning');
+      setTimeout(() => goToNextLevel(), 1500);
+      return;
+    }
+
+    const m = Math.floor(remaining / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    timerEl.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+
+    if (remaining < 120000) timerEl.classList.add('warning');
+    else timerEl.classList.remove('warning');
+  }
+
+  tick();
+  timerInterval = setInterval(tick, 500);
+}
+
+// ---- LOAD QUESTION ----
+function loadQuestion() {
+  const q = QUESTIONS[currentQ];
+  if (!q) { goToNextLevel(); return; }
+
+  // Reset state
+  selected = null;
+  document.getElementById('q-icon').textContent   = q.icon;
+  document.getElementById('q-num').textContent    = `QUESTION ${currentQ + 1} OF ${QUESTIONS.length}`;
+  document.getElementById('q-text').textContent   = q.task;
+  document.getElementById('q-hint').textContent   = q.hint;
+  document.getElementById('q-hint').classList.remove('show');
+  document.getElementById('hint-btn').style.display = 'inline-block';
+  document.getElementById('confirm-btn').disabled = true;
+
+  // Reset button styles
+  ['cpu-btn', 'gpu-btn'].forEach(id => {
+    document.getElementById(id).classList.remove('selected');
+  });
+
+  // Progress bar
+  const pct = (currentQ / QUESTIONS.length) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+
+  // Update dots
+  for (let i = 0; i < QUESTIONS.length; i++) {
+    const dot = document.getElementById(`dot-${i}`);
+    dot.className = 'dot';
+    if (i < currentQ) {
+      dot.classList.add(answers[i] === QUESTIONS[i].answer ? 'correct' : 'wrong');
+    } else if (i === currentQ) {
+      dot.classList.add('current');
+    }
+  }
+
+  // Score HUD
+  document.getElementById('hud-score').textContent = `${score} / ${QUESTIONS.length}`;
+
+  // Animate card in
+  const card = document.getElementById('question-card');
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(20px)';
+  requestAnimationFrame(() => {
+    card.style.transition = 'all 0.4s ease';
+    card.style.opacity = '1';
+    card.style.transform = 'translateY(0)';
+  });
+}
+
+function showHint() {
+  document.getElementById('q-hint').classList.add('show');
+  document.getElementById('hint-btn').style.display = 'none';
+}
+
+// ---- SELECT ANSWER ----
+function selectAnswer(choice) {
+  selected = choice;
+
+  document.getElementById('cpu-btn').classList.toggle('selected', choice === 'cpu');
+  document.getElementById('gpu-btn').classList.toggle('selected', choice === 'gpu');
+  document.getElementById('confirm-btn').disabled = false;
+}
+
+// ---- CONFIRM ----
+function confirmAnswer() {
+  if (!selected) return;
+
+  const q       = QUESTIONS[currentQ];
+  const correct = selected === q.answer;
+  answers.push(selected);
+
+  if (correct) {
+    score++;
+    showFeedback(true, q.explanation);
+    spawnParticles('#00ff88', 12);
+  } else {
+    showFeedback(false, q.explanation);
+  }
+}
+
+// ---- FEEDBACK ----
+function showFeedback(correct, explanation) {
+  const overlay = document.getElementById('feedback-overlay');
+  const card    = document.getElementById('feedback-card');
+  const icon    = document.getElementById('feedback-icon');
+  const title   = document.getElementById('feedback-title');
+  const explain = document.getElementById('feedback-explain');
+
+  if (correct) {
+    card.className = 'feedback-card correct';
+    icon.textContent  = '✅';
+    title.textContent = 'Correct!';
+    title.style.color = 'var(--green)';
+  } else {
+    card.className = 'feedback-card wrong';
+    icon.textContent  = '❌';
+    title.textContent = 'Not Quite!';
+    title.style.color = 'var(--red)';
+  }
+
+  explain.textContent = explanation;
+  overlay.classList.add('show');
+
+  setTimeout(() => {
+    overlay.classList.remove('show');
+    currentQ++;
+    if (currentQ >= QUESTIONS.length) {
+      goToNextLevel();
+    } else {
+      loadQuestion();
+    }
+  }, 2200);
+}
+
+// ---- NEXT LEVEL ----
+function goToNextLevel() {
+  clearInterval(timerInterval);
+
+  // Save l1 score
+  S.set('l1Score', score);
+  S.set('score',   score);
+
+  // Transition
+  document.body.style.opacity = '0';
+  document.body.style.transition = 'opacity 0.5s ease';
+  setTimeout(() => window.location.href = 'level2.html', 500);
+}
+</script>
+</body>
+</html>

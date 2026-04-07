@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU Explorer — Enter the Core</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ===== WORMHOLE INTRO ===== */
+    body { overflow: hidden; cursor: none; }
+
+    /* Custom cursor */
+    .cursor {
+      position: fixed;
+      width: 20px; height: 20px;
+      border: 2px solid var(--cyan);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99999;
+      transition: transform 0.1s ease;
+      mix-blend-mode: screen;
+    }
+    .cursor-dot {
+      position: fixed;
+      width: 6px; height: 6px;
+      background: var(--cyan);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99999;
+    }
+
+    /* Wormhole canvas */
+    #wormhole-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    /* Particle ring */
+    .ring-container {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(0,247,255,0.2);
+      animation: ring-expand linear infinite;
+    }
+
+    @keyframes ring-expand {
+      0%   { transform: scale(0.2); opacity: 0.8; }
+      100% { transform: scale(3);   opacity: 0; }
+    }
+
+    /* Content overlay */
+    #intro-content {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .gpu-hologram {
+      width: 160px;
+      height: 160px;
+      margin: 0 auto 40px;
+      position: relative;
+    }
+
+    .gpu-hologram svg {
+      width: 100%;
+      height: 100%;
+      animation: float 3s ease-in-out infinite;
+      filter: drop-shadow(0 0 20px var(--cyan)) drop-shadow(0 0 40px rgba(0,247,255,0.4));
+    }
+
+    .orbit-ring {
+      position: absolute;
+      inset: -20px;
+      border: 1px solid rgba(0,247,255,0.3);
+      border-radius: 50%;
+      animation: rotate-slow 8s linear infinite;
+    }
+    .orbit-ring::after {
+      content: '';
+      position: absolute;
+      top: -4px; left: 50%;
+      width: 8px; height: 8px;
+      background: var(--cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--cyan);
+      transform: translateX(-50%);
+    }
+
+    .orbit-ring-2 {
+      position: absolute;
+      inset: -40px;
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 50%;
+      animation: rotate-slow 12s linear infinite reverse;
+    }
+    .orbit-ring-2::after {
+      content: '';
+      position: absolute;
+      bottom: -4px; left: 50%;
+      width: 6px; height: 6px;
+      background: var(--purple);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--purple);
+      transform: translateX(-50%);
+    }
+
+    .intro-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border: 1px solid rgba(0,247,255,0.4);
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--cyan);
+      letter-spacing: 0.15em;
+      margin-bottom: 24px;
+      background: rgba(0,247,255,0.06);
+      animation: fadeInUp 1s ease 0.2s both;
+    }
+
+    .intro-dot {
+      width: 6px; height: 6px;
+      background: var(--cyan);
+      border-radius: 50%;
+      animation: pulse 1s infinite;
+    }
+
+    .intro-title {
+      animation: fadeInUp 1s ease 0.4s both;
+      margin-bottom: 16px;
+    }
+
+    .intro-subtitle {
+      animation: fadeInUp 1s ease 0.6s both;
+      max-width: 520px;
+      margin: 0 auto 40px;
+    }
+
+    .intro-enter-btn {
+      animation: fadeInUp 1s ease 0.8s both;
+    }
+
+    .enter-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      padding: 20px 52px;
+      background: linear-gradient(135deg, rgba(0,247,255,0.15), rgba(0,80,255,0.15));
+      border: 2px solid var(--cyan);
+      border-radius: 999px;
+      color: var(--cyan);
+      font-family: var(--font-title);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.4s ease;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(0,247,255,0.2), inset 0 0 40px rgba(0,247,255,0.04);
+    }
+
+    .enter-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(0,247,255,0.3), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .enter-btn:hover {
+      color: #000;
+      background: var(--cyan);
+      box-shadow: 0 0 80px rgba(0,247,255,0.6), 0 0 150px rgba(0,247,255,0.3);
+      transform: scale(1.05);
+    }
+
+    .enter-btn:hover::before { opacity: 1; }
+
+    .enter-arrow {
+      width: 32px; height: 32px;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      transition: transform 0.3s ease;
+    }
+
+    .enter-btn:hover .enter-arrow { transform: translateX(4px); }
+
+    .stats-strip {
+      display: flex;
+      gap: 40px;
+      margin-top: 48px;
+      animation: fadeInUp 1s ease 1s both;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-num {
+      font-family: var(--font-title);
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: var(--cyan);
+      display: block;
+      text-shadow: 0 0 20px var(--cyan);
+    }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* Skip / scroll hint */
+    .scroll-hint {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      animation: fadeInUp 1s ease 1.5s both;
+      z-index: 3;
+    }
+
+    /* Loading overlay */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-deep);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9998;
+      transition: opacity 0.8s ease;
+    }
+
+    .loading-text {
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      font-size: 0.85rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      animation: pulse 0.8s infinite;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Custom Cursor -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-dot" id="cursor-dot"></div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+  <div class="loading-text">Initializing GPU Core...</div>
+</div>
+
+<!-- Wormhole Canvas -->
+<canvas id="wormhole-canvas"></canvas>
+
+<!-- Animated Rings -->
+<div class="ring-container" id="rings"></div>
+
+<!-- Main Content -->
+<div id="intro-content">
+  <!-- GPU Hologram Icon -->
+  <div class="gpu-hologram">
+    <div class="orbit-ring"></div>
+    <div class="orbit-ring-2"></div>
+    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- GPU Card Body -->
+      <rect x="20" y="70" width="160" height="90" rx="10" fill="#0d1a30" stroke="#00f7ff" stroke-width="2"/>
+      <!-- PCIe Connector -->
+      <rect x="30" y="155" width="140" height="18" rx="4" fill="#020814" stroke="#00f7ff" stroke-width="1.5"/>
+      <rect x="40" y="158" width="8" height="12" rx="2" fill="#00f7ff" opacity="0.6"/>
+      <rect x="54" y="158" width="8" height="12" rx="2" fill="#00f7ff" opacity="0.6"/>
+      <rect x="68" y="158" width="8" height="12" rx="2" fill="#00f7ff" opacity="0.6"/>
+      <rect x="82" y="158" width="8" height="12" rx="2" fill="#00f7ff" opacity="0.6"/>
+      <rect x="96" y="158" width="8" height="12" rx="2" fill="#00f7ff" opacity="0.6"/>
+      <rect x="110" y="158" width="8" height="12" rx="2" fill="#00f7ff" opacity="0.6"/>
+      <rect x="124" y="158" width="8" height="12" rx="2" fill="#00f7ff" opacity="0.6"/>
+      <!-- GPU Chip -->
+      <rect x="50" y="82" width="55" height="55" rx="6" fill="#0a1525" stroke="#00f7ff" stroke-width="1.5"/>
+      <text x="65" y="117" font-family="monospace" font-size="14" fill="#00f7ff" font-weight="bold">GPU</text>
+      <!-- VRAM chips -->
+      <rect x="115" y="82" width="22" height="22" rx="3" fill="#0a1525" stroke="#a855f7" stroke-width="1"/>
+      <rect x="142" y="82" width="22" height="22" rx="3" fill="#0a1525" stroke="#a855f7" stroke-width="1"/>
+      <rect x="115" y="109" width="22" height="22" rx="3" fill="#0a1525" stroke="#a855f7" stroke-width="1"/>
+      <rect x="142" y="109" width="22" height="22" rx="3" fill="#0a1525" stroke="#a855f7" stroke-width="1"/>
+      <!-- Fan circles -->
+      <circle cx="155" y="0" cx="155" cy="145" r="1" fill="none"/>
+      <!-- HDMI/DP ports suggestion -->
+      <rect x="20" y="78" width="8" height="14" rx="1" fill="#00f7ff" opacity="0.5"/>
+      <rect x="20" y="95" width="8" height="14" rx="1" fill="#00f7ff" opacity="0.5"/>
+      <!-- Glow lines -->
+      <line x1="30" y1="140" x2="170" y2="140" stroke="#00f7ff" stroke-width="0.5" opacity="0.3"/>
+      <line x1="30" y1="148" x2="170" y2="148" stroke="#00f7ff" stroke-width="0.5" opacity="0.2"/>
+    </svg>
+  </div>
+
+  <!-- Badge -->
+  <div class="intro-badge">
+    <div class="intro-dot"></div>
+    INTERACTIVE LEARNING EXPERIENCE
+    <div class="intro-dot"></div>
+  </div>
+
+  <!-- Title -->
+  <div class="intro-title">
+    <h1 class="title-xl">GPU<br>EXPLORER</h1>
+  </div>
+
+  <!-- Subtitle -->
+  <p class="subtitle intro-subtitle">
+    Dive into the world of <span style="color:var(--cyan)">Video Accelerators</span> through
+    immersive team challenges, drag-and-drop hardware assembly, and real-time competition.
+  </p>
+
+  <!-- Enter Button -->
+  <div class="intro-enter-btn">
+    <button class="enter-btn" onclick="enterGame()">
+      <span>Launch Mission</span>
+      <div class="enter-arrow">›</div>
+    </button>
+  </div>
+
+  <!-- Stats Strip -->
+  <div class="stats-strip">
+    <div class="stat-item">
+      <span class="stat-num">6</span>
+      <span class="stat-label">Teams</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">2</span>
+      <span class="stat-label">Levels</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">10</span>
+      <span class="stat-label">Min Limit</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">70+</span>
+      <span class="stat-label">Players</span>
+    </div>
+  </div>
+</div>
+
+<!-- Scroll Hint -->
+<div class="scroll-hint">PRESS LAUNCH TO BEGIN</div>
+
+<script>
+// Custom cursor
+const cursor = document.getElementById('cursor');
+const cursorDot = document.getElementById('cursor-dot');
+document.addEventListener('mousemove', e => {
+  cursor.style.left = (e.clientX - 10) + 'px';
+  cursor.style.top  = (e.clientY - 10) + 'px';
+  cursorDot.style.left = (e.clientX - 3) + 'px';
+  cursorDot.style.top  = (e.clientY - 3) + 'px';
+});
+
+// Loading
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const lo = document.getElementById('loading-overlay');
+    lo.style.opacity = '0';
+    setTimeout(() => lo.remove(), 800);
+  }, 1200);
+});
+
+// Wormhole canvas
+const canvas = document.getElementById('wormhole-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, tunnelPoints = [], frame = 0;
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function drawWormhole() {
+  ctx.fillStyle = 'rgba(2,8,20,0.12)';
+  ctx.fillRect(0, 0, W, H);
+
+  const cx = W / 2, cy = H / 2;
+  const numRings = 30;
+  const speed = 0.4;
+
+  for (let i = 0; i < numRings; i++) {
+    const t = ((frame * speed + i * (600 / numRings)) % 600) / 600;
+    const r = t * Math.min(W, H) * 0.7;
+    const alpha = (1 - t) * 0.25;
+    const sides = 8;
+
+    ctx.beginPath();
+    for (let s = 0; s <= sides; s++) {
+      const angle = (s / sides) * Math.PI * 2 + frame * 0.005;
+      const wobble = Math.sin(frame * 0.02 + i) * r * 0.05;
+      const x = cx + (r + wobble) * Math.cos(angle);
+      const y = cy + (r + wobble) * 0.6 * Math.sin(angle);
+      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+
+    const hue = (frame * 0.5 + i * 12) % 360;
+    ctx.strokeStyle = `hsla(${hue > 30 && hue < 60 ? 185 : hue > 240 && hue < 300 ? 270 : 185}, 100%, 60%, ${alpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Center glow
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 120);
+  grad.addColorStop(0, 'rgba(0,247,255,0.08)');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  frame++;
+  requestAnimationFrame(drawWormhole);
+}
+drawWormhole();
+
+// Animated rings
+const ringsContainer = document.getElementById('rings');
+for (let i = 0; i < 5; i++) {
+  const ring = document.createElement('div');
+  const size = 200 + i * 120;
+  ring.className = 'ring';
+  ring.style.cssText = `
+    width: ${size}px;
+    height: ${size * 0.5}px;
+    animation-duration: ${3 + i * 0.8}s;
+    animation-delay: ${i * -0.6}s;
+    opacity: ${0.15 - i * 0.02};
+  `;
+  ringsContainer.appendChild(ring);
+}
+
+// Enter game
+function enterGame() {
+  const btn = document.querySelector('.enter-btn');
+  btn.textContent = 'Entering Core...';
+  btn.style.background = 'var(--cyan)';
+  btn.style.color = '#000';
+
+  // Particle burst
+  for (let i = 0; i < 3; i++) {
+    setTimeout(() => spawnParticles('#00f7ff', 15), i * 200);
+  }
+
+  setTimeout(() => {
+    document.body.style.opacity = '0';
+    document.body.style.transition = 'opacity 0.6s ease';
+    setTimeout(() => window.location.href = 'login.html', 600);
+  }, 600);
+}
+
+function spawnParticles(color, count) {
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    const drift = (Math.random() - 0.5) * 400;
+    p.style.cssText = `
+      position:fixed;bottom:40%;left:${40+Math.random()*20}%;
+      width:${Math.random()*6+2}px;height:${Math.random()*6+2}px;
+      border-radius:50%;background:${color};
+      box-shadow:0 0 6px ${color};
+      --drift:${drift}px;
+      animation:particle-float ${Math.random()*2+1}s ease forwards;
+      pointer-events:none;z-index:9998;
+    `;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 3000);
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPU Explorer — Level 2</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .level-page { min-height: 100vh; padding: 20px 24px 80px; }
+    .hud-top { margin-bottom: 28px; animation: fadeInUp 0.4s ease both; }
+
+    /* ---- PART LABELS ---- */
+    .part-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .part-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px; border-radius: 999px; border: 1px solid;
+      font-family: var(--font-title); font-size: 0.75rem; letter-spacing: 0.1em;
+    }
+    .part-line { flex: 1; height: 1px; background: var(--border); }
+
+    /* ---- DRAG DROP ---- */
+    .puzzle-section { max-width: 800px; margin: 0 auto 40px; animation: fadeInUp 0.4s ease 0.1s both; }
+
+    .components-tray {
+      background: var(--bg-card2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 20px;
+    }
+    .tray-label { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px; }
+    .tray-items { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    .component-item {
+      padding: 12px 20px; border-radius: var(--radius); border: 2px solid var(--border);
+      background: var(--bg-card); cursor: grab; font-family: var(--font-title);
+      font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+      transition: all 0.3s ease; user-select: none; display: flex; align-items: center; gap: 8px;
+    }
+    .component-item:active { cursor: grabbing; }
+    .component-item.gpu-item { border-color: rgba(0,247,255,0.5); color: var(--cyan); box-shadow: 0 0 15px rgba(0,247,255,0.15); }
+    .component-item.gpu-item:hover { border-color: var(--cyan); box-shadow: 0 0 30px rgba(0,247,255,0.3); transform: translateY(-2px); }
+    .component-item.gpu-item.placed { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+    .component-item.other-item { color: var(--muted); }
+
+    .motherboard-container {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 28px; margin-bottom: 16px;
+    }
+    .mb-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 20px; }
+    .mb-diagram { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .mb-slot {
+      border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; padding: 16px;
+      display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted);
+    }
+    .mb-slot-icon { font-size: 1.4rem; }
+
+    .pcie-slot {
+      border: 2px dashed rgba(0,247,255,0.3); border-radius: 10px; padding: 32px 20px;
+      text-align: center; cursor: pointer; transition: all 0.3s ease;
+      grid-column: 1 / -1; background: rgba(0,247,255,0.02); min-height: 110px;
+      display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px;
+    }
+    .pcie-slot:hover { border-color: rgba(0,247,255,0.5); }
+    .pcie-slot.drag-over { border-color: var(--cyan); background: rgba(0,247,255,0.08); box-shadow: 0 0 30px rgba(0,247,255,0.2); }
+    .pcie-slot.installed { border-color: var(--green); border-style: solid; background: rgba(0,255,136,0.06); }
+    .pcie-slot.wrong-flash { animation: wrong-shake 0.5s ease; border-color: var(--red); background: rgba(255,64,96,0.08); }
+
+    .pcie-label { font-family: var(--font-title); font-size: 0.85rem; letter-spacing: 0.1em; color: rgba(0,247,255,0.5); }
+    .pcie-sub { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
+    .pcie-installed-content { display: none; align-items: center; justify-content: center; gap: 16px; }
+    .pcie-slot.installed .pcie-empty-content { display: none; }
+    .pcie-slot.installed .pcie-installed-content { display: flex; }
+
+    .gpu-card-visual {
+      background: linear-gradient(135deg, #0d1f3c, #051020);
+      border: 1px solid rgba(0,247,255,0.4); border-radius: 8px; padding: 12px 20px;
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--font-title); font-size: 0.9rem; color: var(--cyan);
+      box-shadow: 0 0 20px rgba(0,247,255,0.2);
+    }
+
+    .touch-hint { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); text-align: center; padding: 8px; }
+
+    /* ---- MCQ SECTION ---- */
+    .mcq-section { max-width: 760px; margin: 0 auto 40px; animation: fadeInUp 0.4s ease 0.15s both; }
+
+    .mcq-progress {
+      display: flex; gap: 8px; margin-bottom: 20px;
+    }
+    .mcq-dot {
+      flex: 1; height: 4px; border-radius: 999px;
+      background: var(--border); transition: background 0.4s ease;
+    }
+    .mcq-dot.done   { background: var(--green); }
+    .mcq-dot.active { background: var(--cyan); }
+
+    .mcq-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 36px 28px;
+      position: relative; overflow: hidden;
+    }
+    .mcq-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--purple), var(--cyan));
+    }
+
+    .mcq-q-icon { font-size: 2.8rem; display: block; text-align: center; margin-bottom: 18px; animation: float 2s ease-in-out infinite; }
+    .mcq-q-num { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); text-align: center; margin-bottom: 10px; letter-spacing: 0.1em; }
+    .mcq-q-text { font-family: var(--font-title); font-size: clamp(0.95rem, 2.5vw, 1.25rem); text-align: center; margin-bottom: 28px; line-height: 1.4; }
+
+    .mcq-options { display: flex; flex-direction: column; gap: 12px; }
+    .mcq-option {
+      display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px;
+      border: 2px solid var(--border); border-radius: var(--radius);
+      cursor: pointer; transition: all 0.25s ease;
+      background: rgba(255,255,255,0.02); font-family: var(--font-body);
+      font-size: 0.95rem; font-weight: 600; text-align: left; line-height: 1.4;
+    }
+    .mcq-option:hover { border-color: rgba(0,247,255,0.4); background: rgba(0,247,255,0.04); transform: translateX(4px); }
+    .mcq-option.selected { border-color: var(--cyan); background: rgba(0,247,255,0.08); }
+    .mcq-option.correct-answer { border-color: var(--green); background: rgba(0,255,136,0.1); color: var(--green); pointer-events: none; }
+    .mcq-option.wrong-answer   { border-color: var(--red);   background: rgba(255,64,96,0.08); color: var(--red);   pointer-events: none; }
+    .mcq-option.disabled       { pointer-events: none; opacity: 0.6; }
+
+    .mcq-option-letter {
+      width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-title); font-size: 0.75rem; font-weight: 900;
+      flex-shrink: 0; transition: var(--transition); margin-top: 1px;
+    }
+    .mcq-option.selected .mcq-option-letter { background: var(--cyan); border-color: var(--cyan); color: #000; }
+    .mcq-option.correct-answer .mcq-option-letter { background: var(--green); border-color: var(--green); color: #000; }
+    .mcq-option.wrong-answer   .mcq-option-letter { background: var(--red);   border-color: var(--red);   color: #fff; }
+
+    .mcq-explain {
+      background: rgba(0,0,0,0.3); border-radius: var(--radius); padding: 14px 18px;
+      margin-top: 16px; font-family: var(--font-body); font-size: 0.9rem;
+      color: rgba(255,255,255,0.75); line-height: 1.5; display: none;
+      border-left: 3px solid var(--cyan);
+    }
+    .mcq-explain.show { display: block; animation: fadeInUp 0.3s ease; }
+
+    .mcq-confirm-wrap { text-align: center; margin-top: 24px; }
+
+    .locked-msg {
+      background: rgba(0,0,0,0.4); border: 1px dashed var(--border); border-radius: var(--radius-lg);
+      padding: 48px; text-align: center; font-family: var(--font-mono); color: var(--muted); font-size: 0.85rem;
+    }
+
+    /* ---- CASE STUDY SECTION ---- */
+    .case-section { max-width: 760px; margin: 0 auto 40px; animation: fadeInUp 0.4s ease 0.2s both; }
+
+    .case-card {
+      background: var(--bg-card); border: 1px solid rgba(255,215,0,0.2);
+      border-radius: var(--radius-lg); overflow: hidden;
+    }
+    .case-header {
+      background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(168,85,247,0.08));
+      border-bottom: 1px solid rgba(255,215,0,0.15); padding: 28px;
+    }
+    .case-icon { font-size: 3rem; display: block; text-align: center; margin-bottom: 14px; animation: float 3s ease-in-out infinite; }
+    .case-title { font-family: var(--font-title); font-size: clamp(1rem, 2.5vw, 1.3rem); color: var(--gold); text-align: center; margin-bottom: 20px; }
+
+    .case-story {
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .case-line {
+      display: flex; gap: 12px; align-items: flex-start;
+      font-family: var(--font-body); font-size: 0.95rem; line-height: 1.6; color: rgba(232,244,255,0.85);
+    }
+    .case-num {
+      background: rgba(255,215,0,0.15); border: 1px solid rgba(255,215,0,0.3);
+      color: var(--gold); font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700;
+      border-radius: 4px; padding: 2px 8px; flex-shrink: 0; margin-top: 3px;
+    }
+
+    .case-why {
+      margin: 20px 0 0;
+      background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2);
+      border-radius: var(--radius); padding: 14px 18px;
+      font-family: var(--font-body); font-size: 0.88rem; color: rgba(168,85,247,0.9); line-height: 1.5;
+    }
+
+    .case-body { padding: 28px; }
+    .case-q-title {
+      font-family: var(--font-title); font-size: 0.9rem; letter-spacing: 0.08em;
+      color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+    }
+
+    .tf-questions { display: flex; flex-direction: column; gap: 16px; }
+
+    .tf-item {
+      background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      transition: var(--transition);
+    }
+    .tf-item.answered { border-color: rgba(0,247,255,0.2); }
+
+    .tf-q-text { font-family: var(--font-body); font-size: 0.95rem; font-weight: 600; margin-bottom: 14px; line-height: 1.4; }
+    .tf-q-num {
+      font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);
+      letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;
+    }
+
+    .tf-buttons { display: flex; gap: 10px; }
+    .tf-btn {
+      flex: 1; padding: 12px; border-radius: var(--radius);
+      border: 2px solid var(--border); cursor: pointer;
+      font-family: var(--font-title); font-size: 0.8rem; letter-spacing: 0.08em;
+      transition: all 0.25s ease; background: transparent; color: var(--white);
+    }
+    .tf-btn:hover:not(:disabled) { transform: translateY(-2px); }
+    .tf-btn.true-btn:hover:not(:disabled)  { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.08); }
+    .tf-btn.false-btn:hover:not(:disabled) { border-color: var(--red);   color: var(--red);   background: rgba(255,64,96,0.08); }
+    .tf-btn.correct  { border-color: var(--green); background: rgba(0,255,136,0.15); color: var(--green); }
+    .tf-btn.wrong    { border-color: var(--red);   background: rgba(255,64,96,0.15);  color: var(--red); }
+    .tf-btn:disabled { cursor: not-allowed; }
+
+    .tf-explain {
+      margin-top: 12px; padding: 12px 14px;
+      background: rgba(0,0,0,0.3); border-radius: 8px; border-left: 3px solid var(--cyan);
+      font-family: var(--font-body); font-size: 0.85rem; color: rgba(255,255,255,0.7); line-height: 1.5;
+      display: none;
+    }
+    .tf-explain.show { display: block; animation: fadeInUp 0.3s ease; }
+
+    .case-complete-btn { text-align: center; margin-top: 28px; }
+
+    /* Complete section */
+    .complete-section { max-width: 760px; margin: 0 auto; text-align: center; padding: 20px; }
+  </style>
+</head>
+<body>
+<div class="page level-page">
+  <div class="container">
+
+    <!-- HUD -->
+    <div class="hud-top">
+      <div class="hud">
+        <div class="hud-item"><span class="hud-label">Team</span><span class="hud-value" id="hud-team">—</span></div>
+        <div class="hud-item"><span class="hud-label">Player</span><span class="hud-value" id="hud-member">—</span></div>
+        <div class="hud-item"><span class="hud-label">Level</span><span class="hud-value text-cyan">02 / 02</span></div>
+        <div class="hud-item"><span class="hud-label">Score</span><span class="hud-value" id="hud-score">—</span></div>
+        <div class="hud-item"><span class="hud-label">Time Left</span><span class="hud-value hud-timer" id="hud-timer">—</span></div>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <div class="center mb-6" style="animation: fadeInUp 0.4s ease 0.1s both;">
+      <span class="badge badge-purple" style="background:rgba(168,85,247,0.15);color:var(--purple);border:1px solid rgba(168,85,247,0.3);">🧩 LEVEL 2 — HARDWARE &amp; KNOWLEDGE</span>
+      <h2 class="title-md mt-4">Assembly + Concepts + Case Study</h2>
+      <p class="subtitle mt-2" style="font-size:0.9rem;">Part A: Install the GPU · Part B: 5 MCQs · Part C: Real Case Study</p>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- PART A: DRAG & DROP                                    -->
+    <!-- ===================================================== -->
+    <div class="puzzle-section">
+      <div class="part-header">
+        <span class="part-badge" style="border-color:var(--cyan);color:var(--cyan);">PART A — GPU INSTALLATION</span>
+        <div class="part-line"></div>
+      </div>
+
+      <div class="components-tray">
+        <div class="tray-label">🗂️ Components Tray — Drag the correct one to the motherboard</div>
+        <div class="tray-items">
+          <div class="component-item gpu-item" id="gpu-piece"
+               draggable="true"
+               ondragstart="onDragStart(event,'gpu')"
+               ontouchstart="onTouchStart(event)"
+               ontouchmove="onTouchMove(event)"
+               ontouchend="onTouchEnd(event)">
+            ⚡ GPU Card
+          </div>
+          <div class="component-item other-item" draggable="true" ondragstart="onDragStart(event,'ram')">💾 RAM Stick</div>
+          <div class="component-item other-item" draggable="true" ondragstart="onDragStart(event,'cpu')">🧠 CPU</div>
+          <div class="component-item other-item" draggable="true" ondragstart="onDragStart(event,'psu')">🔌 Power Supply</div>
+        </div>
+        <div class="touch-hint">📱 On mobile: tap-hold and drag to the slot below</div>
+      </div>
+
+      <div class="motherboard-container">
+        <div class="mb-label">🟢 MOTHERBOARD — Drop the GPU into the correct expansion slot</div>
+        <div class="mb-diagram">
+          <div class="mb-slot"><span class="mb-slot-icon">🧠</span><span>CPU Socket (LGA 1700)</span></div>
+          <div class="mb-slot"><span class="mb-slot-icon">💾</span><span>RAM Slots (DDR5 x4)</span></div>
+
+          <div class="pcie-slot" id="pcie-slot"
+               ondragover="onDragOver(event)"
+               ondragleave="onDragLeave(event)"
+               ondrop="onDrop(event)">
+            <div class="pcie-empty-content" style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+              <div class="pcie-label">⬇ PCIe x16 SLOT</div>
+              <div class="pcie-sub">Drop the GPU Card here</div>
+            </div>
+            <div class="pcie-installed-content">
+              <div class="gpu-card-visual">⚡ GPU Card — INSTALLED ✓</div>
+            </div>
+          </div>
+
+          <div class="mb-slot"><span class="mb-slot-icon">💿</span><span>M.2 NVMe SSD</span></div>
+          <div class="mb-slot"><span class="mb-slot-icon">🔌</span><span>24-pin ATX Power</span></div>
+        </div>
+      </div>
+
+      <p id="part-a-status" class="text-muted center" style="font-family:var(--font-mono);font-size:0.8rem;">
+        Drag and drop the GPU Card into the PCIe x16 slot on the motherboard
+      </p>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- PART B: MCQ (locked until Part A done)                -->
+    <!-- ===================================================== -->
+    <div class="mcq-section" id="mcq-section">
+      <div class="part-header">
+        <span class="part-badge" style="border-color:var(--purple);color:var(--purple);">PART B — CONCEPT MCQ (5 Questions)</span>
+        <div class="part-line"></div>
+      </div>
+
+      <div id="mcq-locked" class="locked-msg">🔒 Complete Part A first to unlock the MCQ questions</div>
+
+      <div id="mcq-wrap" style="display:none;">
+        <div class="mcq-progress" id="mcq-progress"></div>
+        <div class="mcq-card" id="mcq-card">
+          <span class="mcq-q-icon" id="mcq-icon">🎮</span>
+          <div class="mcq-q-num" id="mcq-num">QUESTION 1 OF 5</div>
+          <div class="mcq-q-text" id="mcq-text">Loading...</div>
+          <div class="mcq-options" id="mcq-options"></div>
+          <div class="mcq-explain" id="mcq-explain"></div>
+          <div class="mcq-confirm-wrap">
+            <button class="btn btn-confirm" id="mcq-confirm-btn" onclick="confirmMCQ()" disabled>✅ Confirm Answer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- PART C: CASE STUDY (locked until Part B done)         -->
+    <!-- ===================================================== -->
+    <div class="case-section" id="case-section">
+      <div class="part-header">
+        <span class="part-badge" style="border-color:var(--gold);color:var(--gold);">PART C — REAL-WORLD CASE STUDY</span>
+        <div class="part-line"></div>
+      </div>
+
+      <div id="case-locked" class="locked-msg">🔒 Complete Part B to unlock the Case Study</div>
+
+      <div id="case-wrap" style="display:none;">
+        <div class="case-card">
+          <div class="case-header">
+            <span class="case-icon">🚗</span>
+            <div class="case-title" id="cs-title"></div>
+            <div class="case-story" id="cs-story"></div>
+            <div class="case-why" id="cs-why"></div>
+          </div>
+
+          <div class="case-body">
+            <div class="case-q-title">
+              🟡 TRUE / FALSE — Answer based on the case study above
+              <span class="badge badge-gold" id="cs-score-badge">0 / 5</span>
+            </div>
+            <div class="tf-questions" id="tf-questions"></div>
+            <div class="case-complete-btn" id="case-complete-btn" style="display:none;">
+              <button class="btn btn-primary" onclick="goToFinal()" style="font-size:1rem;padding:20px 60px;">🚀 View Final Results</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="js/game.js"></script>
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+let gpuInstalled   = false;
+let mcqIndex       = 0;
+let mcqSelected    = null;
+let mcqAnswered    = false;
+let mcqScore       = 0;
+let csAnswered     = 0;
+let csScore        = 0;
+let l2Score        = 0;
+let timerInterval;
+const LIMIT_MS     = 10 * 60 * 1000;
+let touchItem      = null;
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  const teamName   = S.get('teamName')   || 'Team';
+  const memberName = S.get('memberName') || 'Explorer';
+  const l1Score    = parseFloat(S.get('l1Score') || 0);
+  const startTime  = S.get('startTime')  || Date.now();
+
+  document.getElementById('hud-team').textContent   = teamName.split('—')[0]?.trim() || teamName;
+  document.getElementById('hud-member').textContent = memberName;
+  updateHUD(l1Score, 0);
+  startTimer(startTime);
+  renderMCQProgress();
+});
+
+function updateHUD(l1, l2) {
+  document.getElementById('hud-score').textContent = `${(l1 + l2).toFixed(1)} / 16`;
+}
+
+// ============================================================
+//  TIMER
+// ============================================================
+function startTimer(startTs) {
+  const el = document.getElementById('hud-timer');
+  function tick() {
+    const remaining = LIMIT_MS - (Date.now() - startTs);
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      el.textContent = '00:00';
+      el.classList.add('warning');
+      showToast('⏰ Time expired — auto-submitting!', 'warning', 3000);
+      setTimeout(goToFinal, 2500);
+      return;
+    }
+    const m = Math.floor(remaining / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    el.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    if (remaining < 120000) el.classList.add('warning'); else el.classList.remove('warning');
+  }
+  tick();
+  timerInterval = setInterval(tick, 500);
+}
+
+// ============================================================
+//  PART A — DRAG & DROP
+// ============================================================
+function onDragStart(event, type) {
+  event.dataTransfer.setData('text', type);
+  event.target.style.opacity = '0.5';
+}
+function onDragOver(event) {
+  event.preventDefault();
+  if (!gpuInstalled) document.getElementById('pcie-slot').classList.add('drag-over');
+}
+function onDragLeave() {
+  document.getElementById('pcie-slot').classList.remove('drag-over');
+}
+function onDrop(event) {
+  event.preventDefault();
+  const type = event.dataTransfer.getData('text');
+  document.getElementById('pcie-slot').classList.remove('drag-over');
+  document.querySelectorAll('.component-item').forEach(el => el.style.opacity = '');
+  if (gpuInstalled) return;
+  if (type === 'gpu') {
+    installGPU();
+  } else {
+    const slot = document.getElementById('pcie-slot');
+    slot.classList.add('wrong-flash');
+    setTimeout(() => slot.classList.remove('wrong-flash'), 600);
+    showToast('❌ Wrong component! The PCIe slot is for the GPU card only.', 'error');
+  }
+}
+
+// Touch drag (mobile)
+function onTouchStart(e) { touchItem = e.currentTarget; }
+function onTouchMove(e) {
+  e.preventDefault();
+  if (!touchItem) return;
+  const t = e.touches[0];
+  const slot = document.getElementById('pcie-slot');
+  const r = slot.getBoundingClientRect();
+  const inside = t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom;
+  slot.classList.toggle('drag-over', inside && !gpuInstalled);
+}
+function onTouchEnd(e) {
+  if (!touchItem) return;
+  const t = e.changedTouches[0];
+  const slot = document.getElementById('pcie-slot');
+  const r = slot.getBoundingClientRect();
+  slot.classList.remove('drag-over');
+  if (t.clientX >= r.left && t.clientX <= r.right && t.clientY >= r.top && t.clientY <= r.bottom && !gpuInstalled) {
+    if (touchItem.id === 'gpu-piece') {
+      installGPU();
+    } else {
+      slot.classList.add('wrong-flash');
+      setTimeout(() => slot.classList.remove('wrong-flash'), 600);
+      showToast('❌ That component does not fit here!', 'error');
+    }
+  }
+  touchItem = null;
+}
+
+function installGPU() {
+  gpuInstalled = true;
+  l2Score += 0.5;
+
+  const slot = document.getElementById('pcie-slot');
+  slot.classList.add('installed');
+  document.getElementById('gpu-piece').classList.add('placed');
+  document.getElementById('part-a-status').innerHTML =
+    '<span style="color:var(--green)">✅ GPU Card installed in PCIe x16 slot!</span>';
+
+  spawnParticles('#00ff88', 12);
+  showToast('✅ GPU installed correctly — +0.5 points!', 'success');
+
+  const l1 = parseFloat(S.get('l1Score') || 0);
+  updateHUD(l1, l2Score);
+
+  // Unlock MCQ
+  setTimeout(() => {
+    document.getElementById('mcq-locked').style.display = 'none';
+    const wrap = document.getElementById('mcq-wrap');
+    wrap.style.display = 'block';
+    wrap.style.animation = 'fadeInUp 0.5s ease both';
+    loadMCQ();
+  }, 700);
+}
+
+// ============================================================
+//  PART B — MCQ
+// ============================================================
+function renderMCQProgress() {
+  const el = document.getElementById('mcq-progress');
+  L2_QUESTIONS.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'mcq-dot';
+    d.id = `mpd-${i}`;
+    el.appendChild(d);
+  });
+}
+
+function loadMCQ() {
+  if (mcqIndex >= L2_QUESTIONS.length) {
+    // All MCQs done — unlock case study
+    setTimeout(unlockCaseStudy, 400);
+    return;
+  }
+  mcqSelected = null;
+  mcqAnswered = false;
+
+  const q = L2_QUESTIONS[mcqIndex];
+  document.getElementById('mcq-icon').textContent = q.icon;
+  document.getElementById('mcq-num').textContent  = `QUESTION ${mcqIndex + 1} OF ${L2_QUESTIONS.length}`;
+  document.getElementById('mcq-text').textContent = q.question;
+  document.getElementById('mcq-explain').classList.remove('show');
+  document.getElementById('mcq-confirm-btn').disabled = true;
+
+  // Options
+  const container = document.getElementById('mcq-options');
+  container.innerHTML = '';
+  const letters = ['A', 'B', 'C'];
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'mcq-option';
+    btn.dataset.idx = i;
+    btn.innerHTML = `<div class="mcq-option-letter">${letters[i]}</div><span>${opt.label}</span>`;
+    btn.addEventListener('click', () => { if (!mcqAnswered) selectMCQ(i, btn); });
+    container.appendChild(btn);
+  });
+
+  // Update progress dots
+  for (let i = 0; i < L2_QUESTIONS.length; i++) {
+    const d = document.getElementById(`mpd-${i}`);
+    if (!d) continue;
+    d.className = 'mcq-dot';
+    if (i < mcqIndex) d.classList.add('done');
+    else if (i === mcqIndex) d.classList.add('active');
+  }
+
+  // Animate card
+  const card = document.getElementById('mcq-card');
+  card.style.opacity = '0'; card.style.transform = 'translateY(16px)';
+  requestAnimationFrame(() => {
+    card.style.transition = 'all 0.4s ease';
+    card.style.opacity = '1'; card.style.transform = 'translateY(0)';
+  });
+}
+
+function selectMCQ(index, el) {
+  mcqSelected = index;
+  document.querySelectorAll('.mcq-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('mcq-confirm-btn').disabled = false;
+}
+
+function confirmMCQ() {
+  if (mcqSelected === null || mcqAnswered) return;
+  mcqAnswered = true;
+
+  const q       = L2_QUESTIONS[mcqIndex];
+  const correct = q.options[mcqSelected].correct;
+
+  document.querySelectorAll('.mcq-option').forEach((el, i) => {
+    el.classList.add('disabled');
+    if (q.options[i].correct)              el.classList.add('correct-answer');
+    else if (i === mcqSelected && !correct) el.classList.add('wrong-answer');
+  });
+
+  const explainEl = document.getElementById('mcq-explain');
+  explainEl.textContent = `${correct ? '✅' : '❌'} ${q.options[mcqSelected].explanation}`;
+  explainEl.classList.add('show');
+  document.getElementById('mcq-confirm-btn').disabled = true;
+
+  if (correct) {
+    mcqScore++;
+    l2Score += 0.5;
+    spawnParticles('#00ff88', 8);
+    showToast('✅ Correct! +0.5 points', 'success');
+  } else {
+    showToast('❌ Incorrect — check the explanation above.', 'error');
+  }
+
+  const l1 = parseFloat(S.get('l1Score') || 0);
+  updateHUD(l1, l2Score);
+
+  // Mark dot done
+  const d = document.getElementById(`mpd-${mcqIndex}`);
+  if (d) d.className = 'mcq-dot done';
+
+  mcqIndex++;
+  setTimeout(loadMCQ, 1800);
+}
+
+// ============================================================
+//  PART C — CASE STUDY
+// ============================================================
+function unlockCaseStudy() {
+  document.getElementById('case-locked').style.display = 'none';
+  const wrap = document.getElementById('case-wrap');
+  wrap.style.display = 'block';
+  wrap.style.animation = 'fadeInUp 0.6s ease both';
+  showToast('📖 Case Study unlocked! Read carefully then answer True/False.', 'info', 4000);
+
+  // Render story
+  document.getElementById('cs-title').textContent = CASE_STUDY.title;
+  const storyEl = document.getElementById('cs-story');
+  CASE_STUDY.story.forEach((line, i) => {
+    const row = document.createElement('div');
+    row.className = 'case-line';
+    row.innerHTML = `<span class="case-num">${i + 1}</span><span>${line}</span>`;
+    storyEl.appendChild(row);
+  });
+  document.getElementById('cs-why').textContent = '💡 Why it matters: ' + CASE_STUDY.whyItMatters;
+
+  // Render T/F questions
+  const tfContainer = document.getElementById('tf-questions');
+  CASE_STUDY.questions.forEach((q, i) => {
+    const item = document.createElement('div');
+    item.className = 'tf-item';
+    item.id = `tf-${i}`;
+    item.innerHTML = `
+      <div class="tf-q-num">STATEMENT ${i + 1} OF ${CASE_STUDY.questions.length}</div>
+      <div class="tf-q-text">${q.q}</div>
+      <div class="tf-buttons">
+        <button class="tf-btn true-btn"  onclick="answerTF(${i}, true)"  id="tf-t-${i}">✅ TRUE</button>
+        <button class="tf-btn false-btn" onclick="answerTF(${i}, false)" id="tf-f-${i}">❌ FALSE</button>
+      </div>
+      <div class="tf-explain" id="tf-exp-${i}"></div>
+    `;
+    tfContainer.appendChild(item);
+  });
+}
+
+function answerTF(index, userAnswer) {
+  const q = CASE_STUDY.questions[index];
+  const correct = userAnswer === q.answer;
+
+  const tBtn = document.getElementById(`tf-t-${index}`);
+  const fBtn = document.getElementById(`tf-f-${index}`);
+  tBtn.disabled = true;
+  fBtn.disabled = true;
+
+  if (userAnswer === true) {
+    tBtn.classList.add(correct ? 'correct' : 'wrong');
+  } else {
+    fBtn.classList.add(correct ? 'correct' : 'wrong');
+  }
+
+  // Mark the correct one
+  if (!correct) {
+    if (q.answer === true) tBtn.classList.add('correct');
+    else fBtn.classList.add('correct');
+  }
+
+  const expEl = document.getElementById(`tf-exp-${index}`);
+  expEl.textContent = q.explanation;
+  expEl.classList.add('show');
+
+  document.getElementById(`tf-${index}`).classList.add('answered');
+
+  if (correct) {
+    csScore++;
+    l2Score += 0.5;
+    spawnParticles('#ffd700', 6);
+  }
+
+  csAnswered++;
+  document.getElementById('cs-score-badge').textContent = `${csScore} / ${CASE_STUDY.questions.length}`;
+
+  const l1 = parseFloat(S.get('l1Score') || 0);
+  updateHUD(l1, l2Score);
+
+  // If all answered, show finish button
+  if (csAnswered === CASE_STUDY.questions.length) {
+    // Bonus
+    const elapsed = Date.now() - (S.get('startTime') || Date.now());
+    let bonus = 0;
+    if (elapsed < 5 * 60 * 1000) { bonus = 1; showToast('⚡ Speed Bonus! +1 point for under 5 minutes!', 'success', 4000); }
+
+    const total = (parseFloat(S.get('l1Score') || 0)) + l2Score + bonus;
+    S.set('l2Score', l2Score);
+    S.set('score', total);
+    updateHUD(parseFloat(S.get('l1Score') || 0), l2Score + bonus);
+
+    setTimeout(() => {
+      document.getElementById('case-complete-btn').style.display = 'block';
+      document.getElementById('case-complete-btn').style.animation = 'fadeInUp 0.5s ease both';
+      showToast('🎉 All done! Click to see your results.', 'success', 4000);
+      spawnParticles('#00f7ff', 20);
+    }, 1000);
+  }
+}
+
+function goToFinal() {
+  clearInterval(timerInterval);
+  // Save whatever we have so far if user exits early
+  const l1 = parseFloat(S.get('l1Score') || 0);
+  if (!S.get('score')) S.set('score', l1 + l2Score);
+  S.set('l2Score', l2Score);
+  document.body.style.opacity = '0';
+  document.body.style.transition = 'opacity 0.5s ease';
+  setTimeout(() => window.location.href = 'final.html', 500);
+}
+</script>
+</body>
+</html>
